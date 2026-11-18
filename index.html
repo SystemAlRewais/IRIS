@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07111f">
+<meta name="description" content="IRIS Official — The family tournament platform">
+<title>IRIS Official | Since 2024</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Orbitron:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+<div class="glow glow-a"></div><div class="glow glow-b"></div>
+<header class="topbar"><a class="brand" href="#"><span class="brand-mark">I</span><span><b>IRIS</b><small>OFFICIAL TOURNAMENT</small></span></a><span class="since">EST. 2024</span></header>
+<main>
+<section id="authView" class="auth-layout">
+  <div class="hero">
+    <div class="eyebrow"><i></i> THE FAMILY LEAGUE</div>
+    <h1>MORE THAN<br><em>A GAME.</em></h1>
+    <p class="hero-ar">عائلة إيريس منذ 2024</p>
+    <p class="story">A Story That Never Ends.<br><span>Memories have passed. Memories are still being made.</span></p>
+    <div class="motto">IT'S NOT ABOUT THE CHAMPION.<br>IT'S ABOUT THE FAMILY.</div>
+  </div>
+  <section class="auth-card">
+    <div class="card-kicker">PLAYER PORTAL <span>● SYSTEM ONLINE</span></div>
+    <div class="tabs"><button class="tab active" data-tab="login">تسجيل الدخول</button><button class="tab" data-tab="register">إنشاء حساب</button></div>
+    <form id="loginForm">
+      <label>كود اللاعب أو رقم الهاتف</label><input name="identity" required autocomplete="username" placeholder="أدخل كود اللاعب أو الهاتف">
+      <label>كلمة المرور</label><input name="password" type="password" required autocomplete="current-password" placeholder="كلمة المرور">
+      <button class="primary" type="submit">دخول إلى حسابي <b>←</b></button>
+    </form>
+    <form id="registerForm" class="hidden">
+      <p class="form-intro">قدّم طلب الانضمام إلى عائلة IRIS. سيتم مراجعة طلبك من الإدارة قبل تفعيل الحساب.</p>
+      <label>الاسم الثلاثي</label><input name="full_name" required minlength="5" placeholder="الاسم الأول والثاني والثالث">
+      <label>رقم الهاتف</label><input name="phone" type="tel" required placeholder="رقم الهاتف">
+      <label>مركزك في الملعب</label><select name="position" required><option value="">اختر مركزك</option><option>حارس مرمى</option><option>مدافع</option><option>وسط ملعب</option><option>جناح</option><option>مهاجم</option><option>متعدد المراكز</option></select>
+      <label>كلمة المرور</label><input name="password" type="password" minlength="8" required placeholder="8 أحرف على الأقل">
+      <button class="primary" type="submit">إرسال طلب التسجيل <b>←</b></button>
+    </form>
+    <p id="authMessage" class="message" role="status"></p>
+  </section>
+</section>
+<section id="playerView" class="hidden">
+  <div class="welcome-row"><div><div class="eyebrow">PLAYER DASHBOARD</div><h1 id="playerName">ملف اللاعب</h1><p id="playerTeam">بانتظار تحميل بياناتك...</p></div><button id="logoutBtn" class="outline">تسجيل الخروج</button></div>
+  <nav class="player-nav"><button data-section="overview" class="active">نظرة عامة</button><button data-section="matches">المباريات</button><button data-section="requests">طلباتي</button><button data-section="profile">ملفي الشخصي</button></nav>
+  <div id="playerContent" class="panel"></div>
+</section>
+</main>
+<footer><b>IRIS FAMILY</b><span>Since 2024 · A Story That Never Ends</span></footer>
+<script src="assets/js/config.js"></script><script src="assets/js/app.js"></script>
+</body></html>
