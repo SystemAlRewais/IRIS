@@ -67,6 +67,7 @@ function route_(path, body, token, method) {
   if (path === "/admin/login" && method === "POST") return loginAdmin_(body);
 
   const session = requireSession_(token);
+  if (path === "/auth/logout" && method === "POST") { revokeSession_(session.token_hash); return {success:true}; }
   if (path.indexOf("/api/player/") === 0) {
     if (session.user_type !== "player") throw new Error("هذه الخدمة مخصصة لحسابات اللاعبين.");
     return playerApi_(path.substring("/api/player/".length), session, body, method);
