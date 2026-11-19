@@ -38,5 +38,5 @@ $("adminContent").addEventListener("click",async e=>{const b=e.target.closest("b
  await load(view)
  }catch(err){alert(err.message)}});
 $("adminLogout").addEventListener("click",async()=>{try{await api("/admin/logout",{})}catch(e){}sessionStorage.removeItem(KEY);token="";admin=null;$("adminApp").classList.add("hidden");$("adminLogin").classList.remove("hidden")});
-if(token){api("/admin/dashboard").then(()=>{admin={username:"مسؤول"};showApp();load(view)}).catch(()=>{sessionStorage.removeItem(KEY);token=""})}
+if(token){api("/admin/profile").then(d=>{admin=d.admin;showApp();load(view)}).catch(()=>{sessionStorage.removeItem(KEY);token="";$("adminApp").classList.add("hidden");$("adminLogin").classList.remove("hidden")})}
 })();
