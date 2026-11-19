@@ -238,8 +238,8 @@ function adminApi_(section,b,session,method) {
     requireMethodPost_(b,method);
     const name=clean_(b.full_name,100),phone=clean_(b.phone,30),position=clean_(b.position,50),password=String(b.password||"");
     const team=rows_("Teams").find(t=>t.team_id===b.team_id && t.status==="active");
-    if(name.split(/\\s+/).filter(Boolean).length<3) throw new Error("اكتب الاسم الثلاثي كاملاً.");
-    if(phone.replace(/\\D/g,"").length<8) throw new Error("رقم الهاتف غير صحيح.");
+    if(name.split(/\s+/).filter(Boolean).length<3) throw new Error("اكتب الاسم الثلاثي كاملاً.");
+    if(phone.replace(/\D/g,"").length<8) throw new Error("رقم الهاتف غير صحيح.");
     if(password.length<8) throw new Error("كلمة المرور يجب ألا تقل عن 8 أحرف.");
     if(!position) throw new Error("اختر مركز اللاعب.");
     if(!team) throw new Error("اختر فريقاً نشطاً.");
