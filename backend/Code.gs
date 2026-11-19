@@ -234,6 +234,25 @@ function adminApi_(section,b,session,method) {
   }};
   if (section === "registrations") return {success:true,items:rows_("RegistrationRequests").filter(x=>x.status==="pending").map(publicRegistration_)};
   if (section === "players") return {success:true,items:rows_("Players").map(publicPlayer_)};
+  if (section === "create-player") {
+    requireMethodPost_(b,method);
+    const name=clean_(b.full_name,100),phone=clean_(b.phone,30),position=clean_(b.position,50),password=String(b.password||"");
+    const team=rows_("Teams").find(t=>t.team_id===b.team_id && t.status==="active");
+    if(name.split(/\\s+/).filter(Boolean).length<3) throw new Error("اكتب الاسم الثلاثي كاملاً.");
+    if(phone.replace(/\\D/g,"").length<8) throw new Error("رقم الهاتف غير صحيح.");
+    if(password.length<8) throw new Error("كلمة المرور يجب ألا تقل عن 8 أحرف.");
+    if(!position) throw new Error("اختر مركز اللاعب.");
+    if(!team) throw new Error("اختر فريقاً نشطاً.");
+    if(rows_("Players").some(p=>String(p.phone)===phone) || rows_("RegistrationRequests").some(r=>String(r.phone)===phone && ["pending","approved"].indexOf(String(r.status))>=0)) throw new Error("رقم الهاتف مسجل بالفعل.");
+    const lock=LockService.getScriptLock();lock.waitLock(20000);
+    try {
+      const playerCode=nextPlayerCode_(),playerId=uid_("PLY"),requestId=uid_("REG"),salt=Utilities.getUuid()+Utilities.getUuid(),hash=hashPassword_(password,salt),now=new Date();
+      append_("Players",{player_id:playerId,player_code:playerCode,full_name:name,phone:phone,position:position,team_id:team.team_id,team_name:team.team_name,photo_url:"",status:"active",joined_at:now,updated_at:now});
+      append_("RegistrationRequests",{request_id:requestId,full_name:name,phone:phone,position:position,password_hash:hash,password_salt:salt,photo_url:"",status:"approved",review_note:"تم إنشاء الحساب من لوحة الإدارة",assigned_team_id:team.team_id,generated_player_code:playerCode,submitted_at:now,reviewed_at:now,reviewed_by:admin.admin_id});
+      audit_(admin.admin_id,"admin","player_created","Players",playerId,{player_code:playerCode,team_id:team.team_id});
+      return {success:true,player_id:playerId,player_code:playerCode,message:"تم إنشاء حساب اللاعب بنجاح."};
+    } finally {lock.releaseLock();}
+  }
   if (section === "teams") return {success:true,items:rows_("Teams")};
   if (section === "matches") return {success:true,items:rows_("Matches").reverse()};
   if (section === "requests") return {success:true,items:rows_("PlayerRequests").reverse()};
