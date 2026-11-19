@@ -421,7 +421,7 @@ function provisionAdmins_() {
     const username=String(row[ix.username]||"").trim();
     if(!username)continue;
     if(temp.length<8)throw new Error("كلمة مرور الأدمن المؤقتة يجب أن تكون 8 أحرف على الأقل.");
-    const salt=Utilities.getUuid()+Utilities.getUuid();
+    const salt=String(row[ix.password_salt]||"") || (Utilities.getUuid()+Utilities.getUuid());
     const hash=hashPassword_(temp,salt);
     if(!row[ix.admin_id])sh.getRange(r+1,ix.admin_id+1).setValue(uid_("ADM"));
     if(!row[ix.password_salt])sh.getRange(r+1,ix.password_salt+1).setValue(salt);
