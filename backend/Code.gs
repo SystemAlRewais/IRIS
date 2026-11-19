@@ -310,15 +310,30 @@ function adminApi_(section,b,session,method) {
     requireMethodPost_(b,method);
     const lock=LockService.getScriptLock();lock.waitLock(20000);
     try {
-      const req=rows_("RegistrationRequests").find(x=>x.request_id===b.request_id && x.status==="pending");
-      if(!req) throw new Error("طلب التسجيل غير موجود أو تمت مراجعته.");
-      const team=rows_("Teams").find(x=>x.team_id===b.team_id && x.status==="active");
+      const allRequests=rows_("RegistrationRequests");
+      const req=allRequests.find(x=>String(x.request_id)===String(b.request_id));
+      if(!req) throw new Error("طلب التسجيل غير موجود.");
+      // Make retries safe: a previous attempt may have created the player
+      // before a later sheet write or audit operation failed.
+      const existingPlayer=rows_("Players").find(x=>String(x.phone)===String(req.phone));
+      if(req.status==="approved" && existingPlayer) {
+        return {success:true,message:"الطلب مقبول بالفعل.",player_code:existingPlayer.player_code,player_id:existingPlayer.player_id,already_approved:true};
+      }
+      const team=rows_("Teams").find(x=>String(x.team_id)===String(b.team_id) && x.status==="active");
       if(!team) throw new Error("اختر فريقاً صحيحاً ومفعلاً.");
-      const code=nextPlayerCode_();
-      const playerId=uid_("PLY");
-      append_("Players",{player_id:playerId,player_code:code,full_name:req.full_name,phone:req.phone,position:req.position,team_id:team.team_id,team_name:team.team_name,photo_url:req.photo_url||"",status:"active",joined_at:new Date(),updated_at:new Date()});
+      let playerId,code;
+      if(existingPlayer) {
+        playerId=existingPlayer.player_id;
+        code=existingPlayer.player_code;
+      } else {
+        code=nextPlayerCode_();
+        playerId=uid_("PLY");
+        append_("Players",{player_id:playerId,player_code:code,full_name:req.full_name,phone:req.phone,position:req.position,team_id:team.team_id,team_name:team.team_name,photo_url:req.photo_url||"",status:"active",joined_at:new Date(),updated_at:new Date()});
+      }
+      // Complete the request after ensuring the player exists. If this write
+      // fails, the next retry finds the player by phone and safely completes it.
       updateById_("RegistrationRequests","request_id",req.request_id,{status:"approved",assigned_team_id:team.team_id,generated_player_code:code,reviewed_at:new Date(),reviewed_by:admin.admin_id});
-      audit_(admin.admin_id,"admin","registration_approved","RegistrationRequests",req.request_id,{player_id:playerId,team_id:team.team_id,player_code:code});
+      try { audit_(admin.admin_id,"admin","registration_approved","RegistrationRequests",req.request_id,{player_id:playerId,team_id:team.team_id,player_code:code}); } catch(auditError) { console.error("IRIS audit write failed: "+auditError.message); }
       return {success:true,message:"تم قبول اللاعب وتوليد كود اللاعب.",player_code:code,player_id:playerId};
     } finally {lock.releaseLock();}
   }
@@ -429,9 +444,15 @@ function append_(name,obj) {
   sh.appendRow(headers.map(h=>Object.prototype.hasOwnProperty.call(obj,h)?obj[h]:""));return obj;
 }
 function updateById_(name,key,id,patch) {
-  const sh=sheet_(name),values=sh.getDataRange().getValues(),headers=values[0].map(String),ki=headers.indexOf(key);
-  for(let r=1;r<values.length;r++)if(String(values[r][ki])===String(id)){
-    Object.keys(patch).forEach(k=>{const c=headers.indexOf(k);if(c>=0)sh.getRange(r+1,c+1).setValue(patch[k]);});return true;
+  const sh=sheet_(name),values=sh.getDataRange().getValues();
+  if(!values.length) throw new Error("الجدول "+name+" فارغ.");
+  const headers=values[0].map(String),ki=headers.indexOf(key);
+  if(ki<0) throw new Error("عمود التعريف "+key+" غير موجود في "+name+".");
+  for(let r=1;r<values.length;r++) if(String(values[r][ki])===String(id)) {
+    const updated=values[r].slice();
+    Object.keys(patch).forEach(k=>{const c=headers.indexOf(k);if(c>=0)updated[c]=patch[k];});
+    sh.getRange(r+1,1,1,headers.length).setValues([updated]);
+    return true;
   }
   throw new Error("تعذر العثور على السجل المطلوب.");
 }
