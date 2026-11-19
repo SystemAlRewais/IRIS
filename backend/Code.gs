@@ -95,7 +95,7 @@ function registerPlayer_(b) {
   if (phone.replace(/\D/g,"").length < 8) throw new Error("رقم الهاتف غير صحيح.");
   if (password.length < 8) throw new Error("كلمة المرور يجب ألا تقل عن 8 أحرف.");
   if (!position) throw new Error("اختر مركزك في الملعب.");
-  const lock=LockService.getScriptLock();lock.waitLock(20000);
+  const lock=LockService.getScriptLock();lock.waitLock(5000);
   try {
     const duplicate = rows_("RegistrationRequests").some(r => String(r.phone) === phone && ["pending","approved"].indexOf(String(r.status)) >= 0);
     const existing = rows_("Players").some(r => String(r.phone) === phone);
@@ -449,7 +449,7 @@ function sheet_(name){
   IRIS_SHEET_CACHE_[name]=sh;
   return sh;
 }
-const IRIS_CACHEABLE_SHEETS_ = {Teams:true,Players:true,Matches:true,PlayerRequests:true,Announcements:true,AuditLog:true,PlayerStats:true,PlayerTitles:true,Transfers:true};
+const IRIS_CACHEABLE_SHEETS_ = {Admins:true,Sessions:true,RegistrationRequests:true,Teams:true,Players:true,Matches:true,MatchEvents:true,PlayerRequests:true,Announcements:true,AuditLog:true,PlayerStats:true,PlayerTitles:true,Transfers:true};
 function invalidateRowsCache_(name) {
   if(IRIS_CACHEABLE_SHEETS_[name]) CacheService.getScriptCache().remove("iris_rows_v1_"+name);
 }
@@ -621,4 +621,4 @@ function recalcStats_(seasonId) {
     else {obj.stat_id=uid_("STA");append_("PlayerStats",obj);}
   });
 }
-function revokeSession_(hash){const sh=sheet_("Sessions"),v=sh.getDataRange().getValues(),h=v[0].map(String);const ix=h.indexOf("token_hash");for(let r=1;r<v.length;r++)if(v[r][ix]===hash){sh.getRange(r+1,h.indexOf("revoked_at")+1).setValue(new Date());return;}}
+function revokeSession_(hash){const sh=sheet_("Sessions"),v=sh.getDataRange().getValues(),h=v[0].map(String);const ix=h.indexOf("token_hash");for(let r=1;r<v.length;r++)if(v[r][ix]===hash){sh.getRange(r+1,h.indexOf("revoked_at")+1).setValue(new Date());invalidateRowsCache_("Sessions");return;}}
