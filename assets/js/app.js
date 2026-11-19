@@ -6,13 +6,13 @@ let token=sessionStorage.getItem("iris_token")||"";
 let player=null,activeSection="overview";
 async function api(path,payload){
  if(!cfg.API_BASE_URL)throw new Error("لم يتم ربط خدمة IRIS السحابية بعد.");
- const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),cfg.REQUEST_TIMEOUT_MS);
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),Number(cfg.REQUEST_TIMEOUT_MS)||30000);
  try{
   const base=cfg.API_BASE_URL+(path.startsWith("?")?path:"?path="+encodeURIComponent(path));
   const url=payload?base:base+"&token="+encodeURIComponent(token);
   const response=await fetch(url,payload?{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...payload,token}),signal:controller.signal}:{signal:controller.signal});
-  const data=await response.json();if(!data.success)throw new Error(data.message||"تعذر تنفيذ الطلب.");return data;
- }finally{clearTimeout(timer);}
+  const raw=await response.text();let data;try{data=JSON.parse(raw)}catch(_){throw new Error("الخادم أعاد استجابة غير مفهومة. تأكد من نشر Apps Script كـ Web App.");}if(!response.ok)throw new Error("تعذر الاتصال بالخادم ("+response.status+").");if(!data.success)throw new Error(data.message||"تعذر تنفيذ الطلب.");return data;
+ }catch(err){if(err.name==="AbortError")throw new Error("الاتصال استغرق وقتاً طويلاً. حاول مرة أخرى.");if(err instanceof TypeError)throw new Error("تعذر الاتصال بخدمة IRIS. تحقق من الإنترنت ورابط الخدمة.");throw err;}finally{clearTimeout(timer);}
 }
 function message(text,isError=false){$("authMessage").textContent=text;$("authMessage").style.color=isError?"var(--red)":"var(--teal)";}
 function showAuth(){ $("authView").classList.remove("hidden");$("playerView").classList.add("hidden"); }
@@ -32,6 +32,11 @@ async function loadSection(section){
    const s=d.stats||{};$("playerContent").innerHTML='<div class="stat-grid">'+stat("المباريات",s.matches||0)+stat("الأهداف",s.goals||0)+stat("الصناعة",s.assists||0)+stat("الشباك النظيفة",s.clean_sheets||0)+stat("الألقاب",s.titles||0)+stat("البطولات",s.tournaments||0)+stat("إنذارات",s.yellow_cards||0)+stat("طرد",s.red_cards||0)+'</div><h3>آخر المستجدات</h3>'+(d.announcements&&d.announcements.length?renderList(d.announcements):'<p class="form-intro">لا توجد إعلانات جديدة حالياً.</p>')+'<h3>آخر الألقاب</h3>'+(d.recent_titles&&d.recent_titles.length?renderList(d.recent_titles):'<p class="form-intro">لم تتم إضافة ألقاب بعد.</p>');
   }else if(section==="requests"){
    $("playerContent").innerHTML='<h3>إرسال طلب جديد</h3><form id="playerRequestForm" class="request-form"><label>نوع الطلب</label><select name="request_type" required><option value="apology">اعتذار عن مباراة</option><option value="complaint">شكوى</option><option value="match_report">تقرير مباراة</option><option value="transfer">طلب انتقال</option><option value="other">طلب آخر</option></select><label>عنوان الطلب</label><input name="subject" required maxlength="120" placeholder="اكتب عنواناً مختصراً"><label>التفاصيل</label><textarea name="message" required maxlength="2000" rows="4" placeholder="اشرح طلبك بالتفصيل"></textarea><button class="primary" type="submit">إرسال الطلب</button><p id="requestMessage" class="message" role="status"></p></form><h3>طلباتي السابقة</h3>'+renderList(d.items||[]);
+  }else if(section==="matches"){
+   const matches=d.items||[];$("playerContent").innerHTML=matches.length?matches.map(m=>'<article class="list-item"><b>'+escapeHtml(m.match_name||"مباراة")+'</b><p>'+escapeHtml(m.date||"")+' · '+escapeHtml(m.score||"")+'</p><p>'+escapeHtml(m.status||"")+' · '+escapeHtml(m.venue||"")+'</p></article>').join(""):'<p class="form-intro">لا توجد مباريات مسجلة حالياً.</p>';
+  }else if(section==="profile"){
+   const p=d.player||player||{},titles=d.titles||[],transfers=d.transfers||[];
+   $("playerContent").innerHTML='<div class="profile-grid"><article class="list-item"><b>الاسم</b><p>'+escapeHtml(p.full_name||"—")+'</p></article><article class="list-item"><b>كود اللاعب</b><p>'+escapeHtml(p.player_code||"—")+'</p></article><article class="list-item"><b>الهاتف</b><p>'+escapeHtml(p.phone||"—")+'</p></article><article class="list-item"><b>المركز</b><p>'+escapeHtml(p.position||"—")+'</p></article><article class="list-item"><b>الفريق</b><p>'+escapeHtml(p.team_name||"—")+'</p></article><article class="list-item"><b>الحالة</b><p>'+escapeHtml(p.status||"—")+'</p></article></div><h3>الألقاب والبطولات</h3>'+renderList(titles)+'<h3>سجل الانتقالات</h3>'+renderList(transfers.map(t=>({title:(t.from_team_id||"—")+" ← "+(t.to_team_id||"—"),status:t.status,reply:t.reason,date:t.requested_at})));
   }else{$("playerContent").innerHTML=renderList(d.items||[]);}
  }catch(err){$("playerContent").textContent=err.message;}
 }
@@ -39,7 +44,7 @@ function stat(label,value){return '<div class="stat"><b>'+Number(value||0)+'</b>
 function renderList(items){if(!items.length)return '<p class="form-intro">لا توجد بيانات لعرضها حالياً.</p>';return items.map(x=>'<article class="list-item"><b>'+escapeHtml(x.title||x.subject||x.match_name||"طلب")+'</b><p>'+escapeHtml(x.status||x.reply||x.date||"")+'</p></article>').join("");}
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 document.querySelectorAll(".player-nav [data-section]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".player-nav button").forEach(x=>x.classList.toggle("active",x===b));loadSection(b.dataset.section);}));
-$("playerContent").addEventListener("submit",async e=>{if(e.target.id!=="playerRequestForm")return;e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const out=$("requestMessage");try{out.textContent="جارٍ إرسال الطلب...";const d=await api("/api/player/requests",f);out.textContent=d.message||"تم الإرسال.";e.target.reset();await loadSection("requests");}catch(err){out.textContent=err.message;}});
+$("playerContent").addEventListener("submit",async e=>{if(e.target.id!=="playerRequestForm")return;e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const out=$("requestMessage");try{out.textContent="جارٍ إرسال الطلب...";const d=await api("/api/player/requests",f);e.target.reset();await loadSection("requests");const success=$("requestMessage");if(success)success.textContent=d.message||"تم إرسال الطلب بنجاح.";}catch(err){out.textContent=err.message;}});
 $("logoutBtn").addEventListener("click",async()=>{try{await api("/auth/logout",{});}catch(err){}token="";player=null;sessionStorage.removeItem("iris_token");showAuth();});
 if(token){api("/api/player/overview").then(d=>{player=d.player;showPlayer();loadSection("overview");}).catch(()=>{token="";sessionStorage.removeItem("iris_token");showAuth();});}
 })();
