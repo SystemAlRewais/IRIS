@@ -40,6 +40,6 @@ function renderList(items){if(!items.length)return '<p class="form-intro">لا �
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 document.querySelectorAll(".player-nav [data-section]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".player-nav button").forEach(x=>x.classList.toggle("active",x===b));loadSection(b.dataset.section);}));
 $("playerContent").addEventListener("submit",async e=>{if(e.target.id!=="playerRequestForm")return;e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const out=$("requestMessage");try{out.textContent="جارٍ إرسال الطلب...";const d=await api("/api/player/requests",f);out.textContent=d.message||"تم الإرسال.";e.target.reset();await loadSection("requests");}catch(err){out.textContent=err.message;}});
-$("logoutBtn").addEventListener("click",()=>{token="";player=null;sessionStorage.removeItem("iris_token");showAuth();});
+$("logoutBtn").addEventListener("click",async()=>{try{await api("/auth/logout",{});}catch(err){}token="";player=null;sessionStorage.removeItem("iris_token");showAuth();});
 if(token){api("/api/player/overview").then(d=>{player=d.player;showPlayer();loadSection("overview");}).catch(()=>{token="";sessionStorage.removeItem("iris_token");showAuth();});}
 })();
