@@ -231,6 +231,49 @@ function adminApi_(section,b,session,method) {
   if (section === "matches") return {success:true,items:rows_("Matches").reverse()};
   if (section === "requests") return {success:true,items:rows_("PlayerRequests").reverse()};
   if (section === "announcements") return {success:true,items:rows_("Announcements").reverse()};
+  if (section === "audit-log") return {success:true,items:rows_("AuditLog").slice(-150).reverse()};
+  if (section === "admin-users") {
+    if(role!=="super_admin") throw new Error("إدارة حسابات المشرفين متاحة للمدير الأعلى فقط.");
+    return {success:true,items:rows_("Admins").map(a=>({admin_id:a.admin_id,username:a.username,full_name:a.full_name,role:a.role,status:a.status,last_login:a.last_login}))};
+  }
+  if (section === "create-admin") {
+    requireMethodPost_(b,method);
+    if(role!=="super_admin") throw new Error("إضافة المشرفين متاحة للمدير الأعلى فقط.");
+    const username=clean_(b.username,80).toLowerCase(),fullName=clean_(b.full_name,100),password=String(b.password||""),newRole=clean_(b.role,30);
+    if(!/^[a-z0-9._-]{3,80}$/.test(username)) throw new Error("اسم المستخدم يجب أن يكون 3 أحرف على الأقل وبالإنجليزية.");
+    if(fullName.length<3||password.length<10||["admin","reviewer"].indexOf(newRole)<0) throw new Error("راجع الاسم وكلمة المرور (10 أحرف على الأقل) والصلاحية.");
+    if(rows_("Admins").some(a=>String(a.username).toLowerCase()===username)) throw new Error("اسم المستخدم مستخدم بالفعل.");
+    const salt=Utilities.getUuid()+Utilities.getUuid(),id=uid_("ADM");
+    append_("Admins",{admin_id:id,username:username,full_name:fullName,password_hash:hashPassword_(password,salt),password_salt:salt,role:newRole,status:"active",created_at:new Date(),last_login:"",initial_password:""});
+    audit_(admin.admin_id,"admin","admin_created","Admins",id,{username:username,role:newRole});
+    return {success:true,admin_id:id};
+  }
+  if (section === "set-admin-status") {
+    requireMethodPost_(b,method);
+    if(role!=="super_admin") throw new Error("إدارة المشرفين متاحة للمدير الأعلى فقط.");
+    const target=rows_("Admins").find(a=>a.admin_id===b.admin_id);
+    if(!target||target.admin_id===admin.admin_id) throw new Error("لا يمكن تعديل هذا الحساب.");
+    const status=b.status==="active"?"active":"suspended";
+    updateById_("Admins","admin_id",target.admin_id,{status:status});
+    audit_(admin.admin_id,"admin","admin_status_changed","Admins",target.admin_id,{status:status});
+    return {success:true};
+  }
+  if (section === "set-player-status") {
+    requireMethodPost_(b,method);
+    const p=rows_("Players").find(x=>x.player_id===b.player_id);if(!p)throw new Error("اللاعب غير موجود.");
+    const status=b.status==="active"?"active":"suspended";
+    updateById_("Players","player_id",p.player_id,{status:status,updated_at:new Date()});
+    audit_(admin.admin_id,"admin","player_status_changed","Players",p.player_id,{status:status});
+    return {success:true};
+  }
+  if (section === "set-team-status") {
+    requireMethodPost_(b,method);
+    const t=rows_("Teams").find(x=>x.team_id===b.team_id);if(!t)throw new Error("الفريق غير موجود.");
+    const status=b.status==="active"?"active":"inactive";
+    updateById_("Teams","team_id",t.team_id,{status:status});
+    audit_(admin.admin_id,"admin","team_status_changed","Teams",t.team_id,{status:status});
+    return {success:true};
+  }
 
   if (section === "approve-registration") {
     requireMethodPost_(b,method);
