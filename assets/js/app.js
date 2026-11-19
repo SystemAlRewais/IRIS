@@ -30,6 +30,8 @@ async function loadSection(section){
   if(section==="overview"){
    const p=d.player||player||{};player=p;$("playerName").textContent=p.full_name||"ملف اللاعب";$("playerTeam").textContent=(p.team_name||"لم يتم تحديد الفريق")+" · "+(p.player_code||"بانتظار اعتماد الحساب");
    const s=d.stats||{};$("playerContent").innerHTML='<div class="stat-grid">'+stat("المباريات",s.matches||0)+stat("الأهداف",s.goals||0)+stat("الألقاب",s.titles||0)+stat("البطولات",s.tournaments||0)+'</div><h3>آخر المستجدات</h3><p class="form-intro">سيظهر هنا آخر أخبار ومباريات IRIS.</p>';
+  }else if(section==="requests"){
+   $("playerContent").innerHTML='<h3>إرسال طلب جديد</h3><form id="playerRequestForm" class="request-form"><label>نوع الطلب</label><select name="request_type" required><option value="apology">اعتذار عن مباراة</option><option value="complaint">شكوى</option><option value="match_report">تقرير مباراة</option><option value="transfer">طلب انتقال</option><option value="other">طلب آخر</option></select><label>عنوان الطلب</label><input name="subject" required maxlength="120" placeholder="اكتب عنواناً مختصراً"><label>التفاصيل</label><textarea name="message" required maxlength="2000" rows="4" placeholder="اشرح طلبك بالتفصيل"></textarea><button class="primary" type="submit">إرسال الطلب</button><p id="requestMessage" class="message" role="status"></p></form><h3>طلباتي السابقة</h3>'+renderList(d.items||[]);
   }else{$("playerContent").innerHTML=renderList(d.items||[]);}
  }catch(err){$("playerContent").textContent=err.message;}
 }
@@ -37,6 +39,7 @@ function stat(label,value){return '<div class="stat"><b>'+Number(value||0)+'</b>
 function renderList(items){if(!items.length)return '<p class="form-intro">لا توجد بيانات لعرضها حالياً.</p>';return items.map(x=>'<article class="list-item"><b>'+escapeHtml(x.title||x.subject||x.match_name||"طلب")+'</b><p>'+escapeHtml(x.status||x.reply||x.date||"")+'</p></article>').join("");}
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 document.querySelectorAll(".player-nav [data-section]").forEach(b=>b.addEventListener("click",()=>{document.querySelectorAll(".player-nav button").forEach(x=>x.classList.toggle("active",x===b));loadSection(b.dataset.section);}));
+$("playerContent").addEventListener("submit",async e=>{if(e.target.id!=="playerRequestForm")return;e.preventDefault();const f=Object.fromEntries(new FormData(e.target));const out=$("requestMessage");try{out.textContent="جارٍ إرسال الطلب...";const d=await api("/api/player/requests",f);out.textContent=d.message||"تم الإرسال.";e.target.reset();await loadSection("requests");}catch(err){out.textContent=err.message;}});
 $("logoutBtn").addEventListener("click",()=>{token="";player=null;sessionStorage.removeItem("iris_token");showAuth();});
 if(token){api("/api/player/overview").then(d=>{player=d.player;showPlayer();loadSection("overview");}).catch(()=>{token="";sessionStorage.removeItem("iris_token");showAuth();});}
 })();
