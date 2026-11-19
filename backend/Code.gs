@@ -69,7 +69,7 @@ function route_(path, body, token, method) {
   const session = requireSession_(token);
   if (path.indexOf("/api/player/") === 0) {
     if (session.user_type !== "player") throw new Error("هذه الخدمة مخصصة لحسابات اللاعبين.");
-    return playerApi_(path.substring("/api/player/".length), session);
+    return playerApi_(path.substring("/api/player/".length), session, body, method);
   }
   if (path.indexOf("/admin/") === 0) {
     if (session.user_type !== "admin") throw new Error("غير مصرح لك بالدخول إلى الإدارة.");
@@ -166,7 +166,7 @@ function requireSession_(token) {
 
 /* -------------------------- PLAYER API -------------------------- */
 
-function playerApi_(section, session) {
+function playerApi_(section, session, body, method) {
   const p = rows_("Players").find(x => x.player_id === session.user_id);
   if (!p) throw new Error("لم يتم العثور على ملف اللاعب.");
   if (section === "overview") {
@@ -190,7 +190,16 @@ function playerApi_(section, session) {
       status:m.status,venue:m.venue
     }))};
   }
-  if (section === "requests") {
+  if (section === "requests" && method === "POST") {
+    const type=clean_(body.request_type,40),subject=clean_(body.subject,120),message=clean_(body.message,2000);
+    if(["apology","complaint","match_report","transfer","other"].indexOf(type)<0) throw new Error("نوع الطلب غير صحيح.");
+    if(!subject||!message) throw new Error("اكتب عنوان الطلب والتفاصيل.");
+    const id=uid_("REQ");
+    append_("PlayerRequests",{request_id:id,player_id:p.player_id,request_type:type,match_id:clean_(body.match_id,80),subject:subject,message:message,admin_reply:"",status:"pending",submitted_at:new Date(),replied_at:"",handled_by:""});
+    audit_(p.player_id,"player","request_submitted","PlayerRequests",id,{request_type:type});
+    return {success:true,message:"تم إرسال طلبك إلى الإدارة بنجاح.",request_id:id};
+  }
+  if (section === "requests" && method === "GET") {
     return {success:true,items:rows_("PlayerRequests").filter(x=>x.player_id===p.player_id).reverse().map(x=>({
       request_id:x.request_id,subject:x.subject,request_type:x.request_type,status:x.status,reply:x.admin_reply,submitted_at:x.submitted_at
     }))};
@@ -384,12 +393,18 @@ function json_(obj){return ContentService.createTextOutput(JSON.stringify(obj)).
 function safeMessage_(err){return err&&err.message?err.message:"حدث خطأ غير متوقع.";}
 function requireMethodPost_(b,method){if(method!=="POST")throw new Error("هذا الإجراء يتطلب POST.");if(!b||typeof b!=="object")throw new Error("طلب غير صالح.");}
 function recalcStats_(seasonId) {
-  const players=rows_("Players"),events=rows_("MatchEvents").filter(e=>truth_(e.approved));
+  const players=rows_("Players"),matches=rows_("Matches").filter(m=>m.status==="completed" && (!seasonId || String(m.season_id)===String(seasonId)));
+  const matchIds=matches.map(m=>m.match_id);
+  const events=rows_("MatchEvents").filter(e=>truth_(e.approved) && matchIds.indexOf(e.match_id)>=0);
   players.forEach(p=>{
     const pe=events.filter(e=>e.player_id===p.player_id);
-    const goals=pe.filter(e=>e.event_type==="goal").length;
+    const played=matches.filter(m=>m.home_team_id===p.team_id || m.away_team_id===p.team_id).length;
+    const cleanSheets=p.position==="حارس مرمى" ? matches.filter(m=>{
+      const home=m.home_team_id===p.team_id,away=m.away_team_id===p.team_id;
+      return (home && num_(m.away_score)===0) || (away && num_(m.home_score)===0);
+    }).length : 0;
     const existing=rows_("PlayerStats").find(s=>s.player_id===p.player_id&&String(s.season_id)===String(seasonId||""));
-    const obj={player_id:p.player_id,season_id:seasonId||"",matches_played:0,goals:goals,assists:pe.filter(e=>e.event_type==="assist").length,clean_sheets:0,yellow_cards:pe.filter(e=>e.event_type==="yellow_card").length,red_cards:pe.filter(e=>e.event_type==="red_card").length,updated_at:new Date()};
+    const obj={player_id:p.player_id,season_id:seasonId||"",matches_played:played,goals:pe.filter(e=>e.event_type==="goal").length,assists:pe.filter(e=>e.event_type==="assist").length,clean_sheets:cleanSheets,yellow_cards:pe.filter(e=>e.event_type==="yellow_card").length,red_cards:pe.filter(e=>e.event_type==="red_card").length,updated_at:new Date()};
     if(existing)updateById_("PlayerStats","stat_id",existing.stat_id,obj);
     else {obj.stat_id=uid_("STA");append_("PlayerStats",obj);}
   });
