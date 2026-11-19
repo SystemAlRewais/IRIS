@@ -73,7 +73,7 @@ function route_(path, body, token, method) {
   }
   if (path.indexOf("/admin/") === 0) {
     if (session.user_type !== "admin") throw new Error("غير مصرح لك بالدخول إلى الإدارة.");
-    return adminApi_(path.substring("/admin/".length), body, session);
+    return adminApi_(path.substring("/admin/".length), body, session, method);
   }
   throw new Error("الخدمة المطلوبة غير موجودة.");
 }
@@ -205,7 +205,7 @@ function playerApi_(section, session) {
 
 /* -------------------------- ADMIN API --------------------------- */
 
-function adminApi_(section,b,session) {
+function adminApi_(section,b,session,method) {
   const admin = rows_("Admins").find(x=>x.admin_id===session.user_id);
   const role = admin.role || "admin";
   if (role === "reviewer" && ["dashboard","registrations","requests"].indexOf(section)<0) throw new Error("صلاحياتك لا تسمح بهذا الإجراء.");
@@ -224,7 +224,7 @@ function adminApi_(section,b,session) {
   if (section === "announcements") return {success:true,items:rows_("Announcements").reverse()};
 
   if (section === "approve-registration") {
-    requireMethodPost_(b);
+    requireMethodPost_(b,method);
     const lock=LockService.getScriptLock();lock.waitLock(20000);
     try {
       const req=rows_("RegistrationRequests").find(x=>x.request_id===b.request_id && x.status==="pending");
@@ -382,7 +382,7 @@ function publicRegistration_(r){return {request_id:r.request_id,full_name:r.full
 function audit_(actorId,role,action,type,id,details){append_("AuditLog",{log_id:uid_("LOG"),actor_id:actorId,actor_role:role,action:action,entity_type:type,entity_id:id,details:JSON.stringify(details||{}),created_at:new Date()});}
 function json_(obj){return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);}
 function safeMessage_(err){return err&&err.message?err.message:"حدث خطأ غير متوقع.";}
-function requireMethodPost_(b){if(!b||typeof b!=="object")throw new Error("طلب غير صالح.");}
+function requireMethodPost_(b,method){if(method!=="POST")throw new Error("هذا الإجراء يتطلب POST.");if(!b||typeof b!=="object")throw new Error("طلب غير صالح.");}
 function recalcStats_(seasonId) {
   const players=rows_("Players"),events=rows_("MatchEvents").filter(e=>truth_(e.approved));
   players.forEach(p=>{
