@@ -32,7 +32,10 @@ const IRIS = {
 /* Run once from the Apps Script editor after binding to the correct spreadsheet. */
 function setupIRIS() {
   const ss = getDb_();
-  Object.keys(IRIS.SHEETS).forEach(name => ensureSheet_(ss, name));
+  Object.keys(IRIS.SHEETS).forEach(name => {
+    const sh = ensureSheet_(ss, name);
+    if (sh.getFrozenRows() !== 1) sh.setFrozenRows(1);
+  });
   provisionAdminFromProperties_();
   provisionAdmins_();
   return "IRIS database ready: " + ss.getUrl();
@@ -404,7 +407,7 @@ function ensureSheet_(ss,name) {
     const current=sh.getRange(1,1,1,Math.max(sh.getLastColumn(),1)).getValues()[0].map(String);
     headers.forEach(h=>{if(current.indexOf(h)<0){sh.getRange(1,sh.getLastColumn()+1).setValue(h);current.push(h);}});
   }
-  sh.setFrozenRows(1);return sh;
+  return sh;
 }
 function sheet_(name){return ensureSheet_(getDb_(),name);}
 function rows_(name) {
