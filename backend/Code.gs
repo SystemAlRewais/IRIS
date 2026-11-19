@@ -434,14 +434,27 @@ function sheet_(name){
   IRIS_SHEET_CACHE_[name]=sh;
   return sh;
 }
+const IRIS_CACHEABLE_SHEETS_ = {Teams:true,Players:true,Matches:true,PlayerRequests:true,Announcements:true,AuditLog:true,PlayerStats:true,PlayerTitles:true,Transfers:true};
+function invalidateRowsCache_(name) {
+  if(IRIS_CACHEABLE_SHEETS_[name]) CacheService.getScriptCache().remove("iris_rows_v1_"+name);
+}
 function rows_(name) {
+  const cacheable=!!IRIS_CACHEABLE_SHEETS_[name],cache=cacheable?CacheService.getScriptCache():null,key="iris_rows_v1_"+name;
+  if(cacheable) {
+    const cached=cache.get(key);
+    if(cached) { try { return JSON.parse(cached); } catch(ignore) { cache.remove(key); } }
+  }
   const sh=sheet_(name),values=sh.getDataRange().getValues();if(values.length<2)return [];
   const headers=values[0].map(String);
-  return values.slice(1).filter(row=>row.some(v=>v!=="")).map(row=>{const o={};headers.forEach((h,i)=>o[h]=row[i]);return o;});
+  const result=values.slice(1).filter(row=>row.some(v=>v!=="")).map(row=>{const o={};headers.forEach((h,i)=>o[h]=row[i]);return o;});
+  if(cacheable) { try { const encoded=JSON.stringify(result); if(encoded.length<95000) cache.put(key,encoded,15); } catch(ignore) {} }
+  return result;
 }
 function append_(name,obj) {
   const sh=sheet_(name),headers=sh.getRange(1,1,1,sh.getLastColumn()).getValues()[0].map(String);
-  sh.appendRow(headers.map(h=>Object.prototype.hasOwnProperty.call(obj,h)?obj[h]:""));return obj;
+  sh.appendRow(headers.map(h=>Object.prototype.hasOwnProperty.call(obj,h)?obj[h]:""));
+  invalidateRowsCache_(name);
+  return obj;
 }
 function updateById_(name,key,id,patch) {
   const sh=sheet_(name),values=sh.getDataRange().getValues();
@@ -452,6 +465,7 @@ function updateById_(name,key,id,patch) {
     const updated=values[r].slice();
     Object.keys(patch).forEach(k=>{const c=headers.indexOf(k);if(c>=0)updated[c]=patch[k];});
     sh.getRange(r+1,1,1,headers.length).setValues([updated]);
+    invalidateRowsCache_(name);
     return true;
   }
   throw new Error("تعذر العثور على السجل المطلوب.");
