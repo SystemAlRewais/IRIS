@@ -184,7 +184,7 @@ function playerApi_(section, session, body, method) {
     const titles = rows_("PlayerTitles").filter(x => x.player_id === p.player_id);
     const events = rows_("MatchEvents").filter(x => x.player_id === p.player_id && truth_(x.approved));
     const matches = rows_("Matches").filter(m => [m.home_team_id,m.away_team_id].indexOf(p.team_id)>=0 && m.status === "completed");
-    const announcements=rows_("Announcements").filter(a=>a.status==="published" && (a.target_type==="all" || (a.target_type==="team" && a.target_id===p.team_id))).slice(-5).reverse();
+    const announcements=rows_("Announcements").filter(a=>a.status==="published" && (a.target_type==="all" || (a.target_type==="team" && a.target_id===p.team_id) || (a.target_type==="player" && a.target_id===p.player_id))).slice(-5).reverse();
     return {success:true,player:publicPlayer_(p),stats:{
       matches:stats.reduce((n,x)=>n+num_(x.matches_played),0) || matches.length,
       goals:stats.reduce((n,x)=>n+num_(x.goals),0) || events.filter(x=>x.event_type==="goal").length,
