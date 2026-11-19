@@ -6,11 +6,11 @@ let token=sessionStorage.getItem("iris_token")||"";
 let player=null,activeSection="overview";
 async function api(path,payload){
  if(!cfg.API_BASE_URL)throw new Error("لم يتم ربط خدمة IRIS السحابية بعد.");
- const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),Number(cfg.REQUEST_TIMEOUT_MS)||30000);
+ const controller=new AbortController();let timer;const timeoutMs=Number(cfg.REQUEST_TIMEOUT_MS)||25000;const timeoutPromise=new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new Error("انتهت مهلة الاتصال بالخادم بعد "+Math.round(timeoutMs/1000)+" ثانية. الخدمة السحابية لم تُكمل الطلب؛ لا تعيد الإرسال قبل التأكد من حالة الطلب."));},timeoutMs);});
  try{
   const base=cfg.API_BASE_URL+(path.startsWith("?")?path:"?path="+encodeURIComponent(path));
   const url=payload?base:base+"&token="+encodeURIComponent(token);
-  const response=await fetch(url,payload?{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...payload,token}),signal:controller.signal}:{signal:controller.signal});
+  const response=await Promise.race([fetch(url,payload?{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...payload,token}),signal:controller.signal}:{signal:controller.signal}),timeoutPromise]);
   const raw=await response.text();let data;try{data=JSON.parse(raw)}catch(_){throw new Error("الخادم أعاد استجابة غير مفهومة. تأكد من نشر Apps Script كـ Web App.");}if(!response.ok)throw new Error("تعذر الاتصال بالخادم ("+response.status+").");if(!data.success)throw new Error(data.message||"تعذر تنفيذ الطلب.");return data;
  }catch(err){if(err.name==="AbortError")throw new Error("الاتصال استغرق وقتاً طويلاً. حاول مرة أخرى.");if(err instanceof TypeError)throw new Error("تعذر الاتصال بخدمة IRIS. تحقق من الإنترنت ورابط الخدمة.");throw err;}finally{clearTimeout(timer);}
 }
