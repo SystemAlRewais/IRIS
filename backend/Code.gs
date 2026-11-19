@@ -142,9 +142,11 @@ function loginAdmin_(b) {
   if (!admin || !admin.password_hash || !safeEqual_(hashPassword_(password,admin.password_salt),admin.password_hash)) {
     throw new Error("بيانات دخول الإدارة غير صحيحة.");
   }
-  updateById_("Admins","admin_id",admin.admin_id,{last_login:new Date()});
+  // Keep authentication on the critical path minimal. Full-sheet updates and
+  // audit writes made successful logins time out on larger workbooks.
   const token = createSession_(admin.admin_id,"admin",admin.role);
-  audit_(admin.admin_id,"admin","admin_login","Admins",admin.admin_id,{});
+  // last_login and audit are intentionally not written during login; they can
+  // be recorded by a separate maintenance task without delaying authentication.
   return {success:true,token:token,admin:{admin_id:admin.admin_id,username:admin.username,full_name:admin.full_name,role:admin.role}};
 }
 
