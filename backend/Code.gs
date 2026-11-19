@@ -240,7 +240,7 @@ function adminApi_(section,b,session,method) {
     } finally {lock.releaseLock();}
   }
   if (section === "reject-registration") {
-    requireMethodPost_(b);
+    requireMethodPost_(b,method);
     const req=rows_("RegistrationRequests").find(x=>x.request_id===b.request_id && x.status==="pending");
     if(!req) throw new Error("الطلب غير موجود.");
     updateById_("RegistrationRequests","request_id",req.request_id,{status:"rejected",review_note:clean_(b.reason,500),reviewed_at:new Date(),reviewed_by:admin.admin_id});
@@ -248,18 +248,18 @@ function adminApi_(section,b,session,method) {
     return {success:true,message:"تم رفض طلب التسجيل."};
   }
   if (section === "create-team") {
-    requireMethodPost_(b);const name=clean_(b.team_name,80);if(!name)throw new Error("اكتب اسم الفريق.");
+    requireMethodPost_(b,method);const name=clean_(b.team_name,80);if(!name)throw new Error("اكتب اسم الفريق.");
     const id=uid_("TEM");append_("Teams",{team_id:id,team_name:name,short_name:clean_(b.short_name,15),logo_url:"",color:clean_(b.color,20),captain_player_id:"",status:"active",created_at:new Date()});
     audit_(admin.admin_id,"admin","team_created","Teams",id,{team_name:name});return {success:true,team_id:id};
   }
   if (section === "create-match") {
-    requireMethodPost_(b);
+    requireMethodPost_(b,method);
     if(!teamExists_(b.home_team_id)||!teamExists_(b.away_team_id)||b.home_team_id===b.away_team_id)throw new Error("حدد فريقين مختلفين وصحيحين.");
     const id=uid_("MAT");append_("Matches",{match_id:id,season_id:clean_(b.season_id,50),match_number:clean_(b.match_number,20),home_team_id:b.home_team_id,away_team_id:b.away_team_id,home_score:"",away_score:"",venue:clean_(b.venue,100),match_date:clean_(b.match_date,30),kickoff_time:clean_(b.kickoff_time,20),status:"scheduled",round_name:clean_(b.round_name,60),notes:clean_(b.notes,500),published:b.published===false?"FALSE":"TRUE",created_at:new Date(),updated_at:new Date()});
     audit_(admin.admin_id,"admin","match_created","Matches",id,{});return {success:true,match_id:id};
   }
   if (section === "set-result") {
-    requireMethodPost_(b);
+    requireMethodPost_(b,method);
     const match=rows_("Matches").find(x=>x.match_id===b.match_id);if(!match)throw new Error("المباراة غير موجودة.");
     const hs=Number(b.home_score),as=Number(b.away_score);if(!Number.isInteger(hs)||!Number.isInteger(as)||hs<0||as<0)throw new Error("النتيجة غير صحيحة.");
     updateById_("Matches","match_id",match.match_id,{home_score:hs,away_score:as,status:"completed",updated_at:new Date()});
@@ -269,27 +269,27 @@ function adminApi_(section,b,session,method) {
     return {success:true,message:"تم حفظ النتيجة والإحصائيات."};
   }
   if (section === "reply-request") {
-    requireMethodPost_(b);const req=rows_("PlayerRequests").find(x=>x.request_id===b.request_id);if(!req)throw new Error("الطلب غير موجود.");
+    requireMethodPost_(b,method);const req=rows_("PlayerRequests").find(x=>x.request_id===b.request_id);if(!req)throw new Error("الطلب غير موجود.");
     updateById_("PlayerRequests","request_id",req.request_id,{admin_reply:clean_(b.reply,1500),status:clean_(b.status,30)||"answered",replied_at:new Date(),handled_by:admin.admin_id});
     audit_(admin.admin_id,"admin","request_replied","PlayerRequests",req.request_id,{status:b.status||"answered"});return {success:true};
   }
   if (section === "transfer-player") {
-    requireMethodPost_(b);const p=rows_("Players").find(x=>x.player_id===b.player_id);const team=rows_("Teams").find(x=>x.team_id===b.to_team_id&&x.status==="active");
+    requireMethodPost_(b,method);const p=rows_("Players").find(x=>x.player_id===b.player_id);const team=rows_("Teams").find(x=>x.team_id===b.to_team_id&&x.status==="active");
     if(!p||!team)throw new Error("اللاعب أو الفريق غير موجود.");
     append_("Transfers",{transfer_id:uid_("TRN"),player_id:p.player_id,from_team_id:p.team_id,to_team_id:team.team_id,reason:clean_(b.reason,500),status:"approved",requested_at:new Date(),decided_at:new Date(),decided_by:admin.admin_id});
     updateById_("Players","player_id",p.player_id,{team_id:team.team_id,team_name:team.team_name,updated_at:new Date()});
     audit_(admin.admin_id,"admin","player_transferred","Players",p.player_id,{from:p.team_id,to:team.team_id});return {success:true};
   }
   if (section === "add-title") {
-    requireMethodPost_(b);const p=rows_("Players").find(x=>x.player_id===b.player_id);if(!p)throw new Error("اللاعب غير موجود.");
+    requireMethodPost_(b,method);const p=rows_("Players").find(x=>x.player_id===b.player_id);if(!p)throw new Error("اللاعب غير موجود.");
     const id=uid_("TTL");append_("PlayerTitles",{title_id:id,player_id:p.player_id,season_id:clean_(b.season_id,50),title_name:clean_(b.title_name,100),category:clean_(b.category,50),description:clean_(b.description,500),awarded_at:new Date(),created_by:admin.admin_id});
     audit_(admin.admin_id,"admin","player_title_added","PlayerTitles",id,{player_id:p.player_id});return {success:true,title_id:id};
   }
   if (section === "create-announcement") {
-    requireMethodPost_(b);const id=uid_("ANN");append_("Announcements",{announcement_id:id,title:clean_(b.title,120),body:clean_(b.body,3000),target_type:clean_(b.target_type,30)||"all",target_id:clean_(b.target_id,80),status:"published",publish_at:new Date(),created_at:new Date(),created_by:admin.admin_id});
+    requireMethodPost_(b,method);const id=uid_("ANN");append_("Announcements",{announcement_id:id,title:clean_(b.title,120),body:clean_(b.body,3000),target_type:clean_(b.target_type,30)||"all",target_id:clean_(b.target_id,80),status:"published",publish_at:new Date(),created_at:new Date(),created_by:admin.admin_id});
     audit_(admin.admin_id,"admin","announcement_created","Announcements",id,{});return {success:true,announcement_id:id};
   }
-  if (section === "logout") { revokeSession_(tokenFromSession_(session)); return {success:true}; }
+  if (section === "logout") { revokeSession_(session.token_hash); return {success:true}; }
   throw new Error("أمر الإدارة غير معروف.");
 }
 
@@ -394,5 +394,4 @@ function recalcStats_(seasonId) {
     else {obj.stat_id=uid_("STA");append_("PlayerStats",obj);}
   });
 }
-function tokenFromSession_(session){return session.token_hash;}
 function revokeSession_(hash){const sh=sheet_("Sessions"),v=sh.getDataRange().getValues(),h=v[0].map(String);const ix=h.indexOf("token_hash");for(let r=1;r<v.length;r++)if(v[r][ix]===hash){sh.getRange(r+1,h.indexOf("revoked_at")+1).setValue(new Date());return;}}
