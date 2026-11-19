@@ -258,7 +258,7 @@ function adminApi_(section,b,session,method) {
       const playerCode=nextPlayerCode_(),playerId=uid_("PLY"),requestId=uid_("REG"),salt=Utilities.getUuid()+Utilities.getUuid(),hash=hashPassword_(password,salt),now=new Date();
       append_("Players",{player_id:playerId,player_code:playerCode,full_name:name,phone:phone,position:position,team_id:team.team_id,team_name:team.team_name,photo_url:"",status:"active",joined_at:now,updated_at:now});
       append_("RegistrationRequests",{request_id:requestId,full_name:name,phone:phone,position:position,password_hash:hash,password_salt:salt,photo_url:"",status:"approved",review_note:"تم إنشاء الحساب من لوحة الإدارة",assigned_team_id:team.team_id,generated_player_code:playerCode,submitted_at:now,reviewed_at:now,reviewed_by:admin.admin_id});
-      audit_(admin.admin_id,"admin","player_created","Players",playerId,{player_code:playerCode,team_id:team.team_id});
+      try { audit_(admin.admin_id,"admin","player_created","Players",playerId,{player_code:playerCode,team_id:team.team_id}); } catch(auditError) { console.error("IRIS player-create audit failed: "+auditError.message); }
       return {success:true,player_id:playerId,player_code:playerCode,message:"تم إنشاء حساب اللاعب بنجاح."};
     } finally {lock.releaseLock();}
   }
@@ -301,6 +301,15 @@ function adminApi_(section,b,session,method) {
     audit_(admin.admin_id,"admin","player_status_changed","Players",p.player_id,{status:status});
     return {success:true};
   }
+  if (section === "archive-player") {
+    requireMethodPost_(b,method);
+    const p=rows_("Players").find(x=>x.player_id===b.player_id);if(!p)throw new Error("اللاعب غير موجود.");
+    if(p.status!=="suspended") throw new Error("لا يمكن حذف لاعب إلا بعد إيقافه أولاً.");
+    updateById_("Players","player_id",p.player_id,{status:"archived",updated_at:new Date()});
+    try { audit_(admin.admin_id,"admin","player_archived","Players",p.player_id,{previous_status:p.status}); } catch(auditError) { console.error("IRIS player-archive audit failed: "+auditError.message); }
+    return {success:true,message:"تم أرشفة اللاعب وإلغاء إمكانية دخوله. تم الاحتفاظ بسجلاته التاريخية."};
+  }
+
   if (section === "set-team-status") {
     requireMethodPost_(b,method);
     const t=rows_("Teams").find(x=>x.team_id===b.team_id);if(!t)throw new Error("الفريق غير موجود.");
