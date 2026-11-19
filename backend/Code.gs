@@ -392,12 +392,16 @@ function adminApi_(section,b,session,method) {
 
 /* --------------------------- SHEETS ----------------------------- */
 
+// Reuse spreadsheet/sheet handles during a single Apps Script execution.
+let IRIS_DB_CACHE_ = null;
+const IRIS_SHEET_CACHE_ = {};
 function getDb_() {
+  if (IRIS_DB_CACHE_) return IRIS_DB_CACHE_;
   const id=PropertiesService.getScriptProperties().getProperty("IRIS_SPREADSHEET_ID");
-  if(id) return SpreadsheetApp.openById(id);
-  const ss=SpreadsheetApp.getActiveSpreadsheet();
-  if(!ss) throw new Error("اربط Apps Script بملف Google Sheets أو اضبط IRIS_SPREADSHEET_ID في Script Properties.");
-  return ss;
+  if(id) IRIS_DB_CACHE_=SpreadsheetApp.openById(id);
+  else IRIS_DB_CACHE_=SpreadsheetApp.getActiveSpreadsheet();
+  if(!IRIS_DB_CACHE_) throw new Error("اربط Apps Script بملف Google Sheets أو اضبط IRIS_SPREADSHEET_ID في Script Properties.");
+  return IRIS_DB_CACHE_;
 }
 function ensureSheet_(ss,name) {
   let sh=ss.getSheetByName(name);if(!sh)sh=ss.insertSheet(name);
@@ -409,7 +413,12 @@ function ensureSheet_(ss,name) {
   }
   return sh;
 }
-function sheet_(name){return ensureSheet_(getDb_(),name);}
+function sheet_(name){
+  if(IRIS_SHEET_CACHE_[name]) return IRIS_SHEET_CACHE_[name];
+  const sh=ensureSheet_(getDb_(),name);
+  IRIS_SHEET_CACHE_[name]=sh;
+  return sh;
+}
 function rows_(name) {
   const sh=sheet_(name),values=sh.getDataRange().getValues();if(values.length<2)return [];
   const headers=values[0].map(String);
