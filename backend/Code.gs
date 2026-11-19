@@ -218,6 +218,7 @@ function adminApi_(section,b,session,method) {
   const admin = rows_("Admins").find(x=>x.admin_id===session.user_id);
   const role = admin.role || "admin";
   if (role === "reviewer" && ["dashboard","registrations","requests"].indexOf(section)<0) throw new Error("صلاحياتك لا تسمح بهذا الإجراء.");
+  if (section === "profile") return {success:true,admin:{admin_id:admin.admin_id,username:admin.username,full_name:admin.full_name,role:role}};
   if (section === "dashboard") return {success:true,counts:{
     players:rows_("Players").filter(x=>x.status==="active").length,
     pending_registrations:rows_("RegistrationRequests").filter(x=>x.status==="pending").length,
