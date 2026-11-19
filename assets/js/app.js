@@ -8,7 +8,9 @@ async function api(path,payload){
  if(!cfg.API_BASE_URL)throw new Error("لم يتم ربط خدمة IRIS السحابية بعد.");
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),cfg.REQUEST_TIMEOUT_MS);
  try{
-  const base=cfg.API_BASE_URL+(path.startsWith("?")?path:"?path="+encodeURIComponent(path));\n  const url=payload?base:base+"&token="+encodeURIComponent(token);\n  const response=await fetch(url,payload?{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...payload,token}),signal:controller.signal}:{signal:controller.signal});
+  const base=cfg.API_BASE_URL+(path.startsWith("?")?path:"?path="+encodeURIComponent(path));
+  const url=payload?base:base+"&token="+encodeURIComponent(token);
+  const response=await fetch(url,payload?{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...payload,token}),signal:controller.signal}:{signal:controller.signal});
   const data=await response.json();if(!data.success)throw new Error(data.message||"تعذر تنفيذ الطلب.");return data;
  }finally{clearTimeout(timer);}
 }
