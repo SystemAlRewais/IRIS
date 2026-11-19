@@ -33,6 +33,7 @@ const IRIS = {
 function setupIRIS() {
   const ss = getDb_();
   Object.keys(IRIS.SHEETS).forEach(name => ensureSheet_(ss, name));
+  provisionAdminFromProperties_();
   provisionAdmins_();
   return "IRIS database ready: " + ss.getUrl();
 }
@@ -60,6 +61,7 @@ function doPost(e) {
 }
 
 function route_(path, body, token, method) {
+  provisionAdminFromProperties_();
   provisionAdmins_();
   if (path === "/health") return {success:true, app:"IRIS", version:IRIS.VERSION, time:new Date().toISOString()};
   if (path === "/auth/register" && method === "POST") return registerPlayer_(body);
@@ -420,6 +422,49 @@ function updateById_(name,key,id,patch) {
     Object.keys(patch).forEach(k=>{const c=headers.indexOf(k);if(c>=0)sh.getRange(r+1,c+1).setValue(patch[k]);});return true;
   }
   throw new Error("تعذر العثور على السجل المطلوب.");
+}
+
+/* Create the first real super admin from Script Properties (one time).
+ * Required properties:
+ * IRIS_ADMIN_USERNAME
+ * IRIS_ADMIN_PASSWORD
+ * Optional:
+ * IRIS_ADMIN_FULL_NAME
+ * The password property is deleted immediately after successful creation.
+ */
+function provisionAdminFromProperties_() {
+  const props = PropertiesService.getScriptProperties();
+  const username = String(props.getProperty("IRIS_ADMIN_USERNAME") || "").trim().toLowerCase();
+  const password = String(props.getProperty("IRIS_ADMIN_PASSWORD") || "");
+  if (!username || !password) return false;
+  if (!/^[a-z0-9._-]{3,80}$/.test(username)) throw new Error("IRIS_ADMIN_USERNAME يجب أن يكون 3 أحرف على الأقل وبالإنجليزية.");
+  if (password.length < 12) throw new Error("IRIS_ADMIN_PASSWORD يجب ألا تقل عن 12 حرفاً.");
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const existing = rows_("Admins").find(a => String(a.username).toLowerCase() === username);
+    if (existing) {
+      props.deleteProperty("IRIS_ADMIN_PASSWORD");
+      return false;
+    }
+    const salt = Utilities.getUuid() + Utilities.getUuid();
+    append_("Admins", {
+      admin_id: uid_("ADM"),
+      username: username,
+      full_name: clean_(props.getProperty("IRIS_ADMIN_FULL_NAME") || "مدير IRIS", 100),
+      password_hash: hashPassword_(password, salt),
+      password_salt: salt,
+      role: "super_admin",
+      status: "active",
+      created_at: new Date(),
+      last_login: "",
+      initial_password: ""
+    });
+    props.deleteProperty("IRIS_ADMIN_PASSWORD");
+    return true;
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /* ---------------------- ADMIN PROVISIONING ---------------------- */
