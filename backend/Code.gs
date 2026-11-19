@@ -95,21 +95,25 @@ function registerPlayer_(b) {
   if (phone.replace(/\D/g,"").length < 8) throw new Error("رقم الهاتف غير صحيح.");
   if (password.length < 8) throw new Error("كلمة المرور يجب ألا تقل عن 8 أحرف.");
   if (!position) throw new Error("اختر مركزك في الملعب.");
-  const sh = sheet_("RegistrationRequests");
-  const duplicate = rows_("RegistrationRequests").some(r => String(r.phone) === phone && ["pending","approved"].indexOf(String(r.status)) >= 0);
-  const existing = rows_("Players").some(r => String(r.phone) === phone);
-  if (duplicate || existing) throw new Error("رقم الهاتف مسجل بالفعل أو لديه طلب قيد المراجعة.");
-  const salt = Utilities.getUuid() + Utilities.getUuid();
-  const hash = hashPassword_(password, salt);
-  const id = uid_("REG");
-  append_("RegistrationRequests", {
-    request_id:id, full_name:name, phone:phone, position:position,
-    password_hash:hash, password_salt:salt, photo_url:"",
-    status:"pending", review_note:"", assigned_team_id:"",
-    generated_player_code:"", submitted_at:new Date(), reviewed_at:"", reviewed_by:""
-  });
-  audit_("public","visitor","registration_submitted","RegistrationRequests",id,{phone:phone});
-  return {success:true,message:"تم استلام طلبك بنجاح. سيظهر حسابك بعد مراجعة الإدارة وتحديد فريقك."};
+  const lock=LockService.getScriptLock();lock.waitLock(20000);
+  try {
+    const duplicate = rows_("RegistrationRequests").some(r => String(r.phone) === phone && ["pending","approved"].indexOf(String(r.status)) >= 0);
+    const existing = rows_("Players").some(r => String(r.phone) === phone);
+    if (duplicate || existing) throw new Error("رقم الهاتف مسجل بالفعل أو لديه طلب قيد المراجعة.");
+    const salt = Utilities.getUuid() + Utilities.getUuid();
+    const hash = hashPassword_(password, salt);
+    const id = uid_("REG");
+    append_("RegistrationRequests", {
+      request_id:id, full_name:name, phone:phone, position:position,
+      password_hash:hash, password_salt:salt, photo_url:"",
+      status:"pending", review_note:"", assigned_team_id:"",
+      generated_player_code:"", submitted_at:new Date(), reviewed_at:"", reviewed_by:""
+    });
+    // Audit is best-effort: a log failure must not report registration as failed.
+    try { audit_("public","visitor","registration_submitted","RegistrationRequests",id,{phone:phone}); }
+    catch(auditError) { console.error("IRIS registration audit failed: "+auditError.message); }
+    return {success:true,message:"تم استلام طلبك بنجاح. سيظهر حسابك بعد مراجعة الإدارة وتحديد فريقك."};
+  } finally { lock.releaseLock(); }
 }
 
 function loginPlayer_(b) {
