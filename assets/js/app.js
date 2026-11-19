@@ -22,7 +22,7 @@ document.querySelectorAll("[data-tab]").forEach(btn=>btn.addEventListener("click
  $("loginForm").classList.toggle("hidden",btn.dataset.tab!=="login");$("registerForm").classList.toggle("hidden",btn.dataset.tab!=="register");message("");
 }));
 $("loginForm").addEventListener("submit",async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{message("جارٍ تسجيل الدخول...");const d=await api("/auth/login",{action:"login",identity:f.get("identity"),password:f.get("password")});token=d.token;sessionStorage.setItem("iris_token",token);player=d.player;showPlayer();await loadSection("overview");}catch(err){message(err.message,true);}});
-$("registerForm").addEventListener("submit",async e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.currentTarget));try{message("جارٍ إرسال طلبك...");const d=await api("/auth/register",{action:"register",...f});e.currentTarget.reset();message(d.message||"تم إرسال طلبك بنجاح. انتظر مراجعة الإدارة.");}catch(err){message(err.message,true);}});
+$("registerForm").addEventListener("submit",async e=>{e.preventDefault();const formEl=e.currentTarget;const f=Object.fromEntries(new FormData(formEl));try{message("جارٍ إرسال طلبك...");const d=await api("/auth/register",{action:"register",...f});formEl.reset();message(d.message||"تم إرسال طلبك بنجاح. انتظر مراجعة الإدارة.");}catch(err){message(err.message,true);}});
 async function loadSection(section){
  activeSection=section;$("playerContent").innerHTML='<p class="form-intro">جارٍ تحميل بياناتك...</p>';
  try{
