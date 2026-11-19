@@ -61,8 +61,8 @@ function doPost(e) {
 }
 
 function route_(path, body, token, method) {
-  provisionAdminFromProperties_();
-  provisionAdmins_();
+  // Provisioning is a one-time setup task. Do not scan/write the Admins sheet
+  // on every API request; this was adding latency to every dashboard action.
   if (path === "/health") return {success:true, app:"IRIS", version:IRIS.VERSION, time:new Date().toISOString()};
   if (path === "/auth/register" && method === "POST") return registerPlayer_(body);
   if (path === "/auth/login" && method === "POST") return loginPlayer_(body);
