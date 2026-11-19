@@ -1,6 +1,6 @@
-# IRIS Official — Tournament Platform
+# IRIS Official — Family Tournament Platform
 
-منصة IRIS الرسمية لإدارة البطولة واللاعبين والفرق والمباريات والأرشيف.
+منصة IRIS لإدارة مجتمع البطولة واللاعبين والفرق والمباريات والإحصائيات والطلبات والإعلانات.
 
 ## الهوية
 - IRIS — Since 2024
@@ -9,55 +9,61 @@
 - It's not about the champion or the best player. It's about the family.
 
 ## Architecture
-- Frontend: GitHub Pages (HTML, CSS, JavaScript).
+- Frontend: GitHub Pages (static HTML/CSS/JavaScript).
 - Backend: Google Apps Script Web App.
 - Database: private Google Sheets workbook.
-- Optional player profile images: Google Drive, served through controlled links.
-- All authorization and validation must happen in Apps Script. Hiding controls in the browser is not security.
+- Admin UI: `admin.html`.
+- Player UI: `index.html`.
 
-## Player journey
-1. Player submits full three-part name, phone number, preferred position, password, and optional profile photo.
-2. Registration is stored as pending and does not create an active player account yet.
-3. Admin reviews the request, approves/rejects it, assigns a team, and the backend generates a unique player code.
-4. Player signs in and sees their profile, current team, appearances, goals, titles, trophies, match history, and transfer history.
-5. Player can submit match apologies, complaints, match reports, and transfer requests. Admin replies and changes request status.
+## Current features
+### Player portal
+- Registration request and admin approval.
+- Player login by player code or phone.
+- Player overview and performance statistics.
+- Match history, titles and team transfer history.
+- Submit apologies, complaints, match reports, transfer requests and other requests.
+- View admin announcements and replies.
 
-## Admin workspace
-- Dashboard and system settings.
-- Registration queue and player management.
-- Teams and team assignment.
-- Match schedule, match results, appearances, goals, and player statistics.
-- Titles, awards, tournament seasons, and archive.
-- Apologies, complaints, match reports, and transfer requests with admin replies.
-- Player profile/photo management.
-- Public announcements and visibility controls.
-- Audit log for important administrative changes.
+### Admin control center
+- Admin login with role-aware access.
+- Dashboard counts.
+- Review and approve/reject player registrations and assign teams.
+- Browse players and activate/suspend player accounts.
+- Create teams and activate/deactivate teams.
+- Create matches, save scores and record goals, assists and cards.
+- Transfer players and award titles.
+- Review player requests and send replies.
+- Publish announcements.
+- Super-admin can create admin/reviewer accounts and suspend/reactivate them.
+- Audit log for administrative actions.
 
-## Suggested Google Sheets tabs
-- Settings
-- Admins
-- RegistrationRequests
-- Players
-- Teams
-- Matches
-- MatchEvents
-- PlayerStats
-- PlayerTitles
-- Transfers
-- PlayerRequests
-- Announcements
-- AuditLog
-- Sessions
+## Database tabs
+Settings, Admins, RegistrationRequests, Players, Teams, Matches, MatchEvents, PlayerStats, PlayerTitles, Transfers, PlayerRequests, Announcements, AuditLog, Sessions.
 
-## Important data rules
-- Use immutable IDs for players, teams, matches, requests, and events.
-- Player code is generated only after admin approval and team assignment.
-- Stats are derived from approved match events/results; admin corrections are logged.
-- Team transfers create history records; never overwrite the player's past team history.
-- Player-facing data is filtered server-side by authenticated player ID.
-- Admin actions are validated server-side and recorded in AuditLog.
-- Store password hashes and salts, never plaintext passwords.
-- Never publish the private spreadsheet ID, admin credentials, or secret tokens in GitHub.
+The Apps Script setup function creates missing tabs and appends missing columns without deleting existing data.
 
-## Setup status
-This repository is the initial project workspace. Apps Script deployment URL and Google Sheet ID will be configured after the backend and workbook are created.
+## Required configuration
+1. Keep the Google Sheet private.
+2. In Apps Script Script Properties set `IRIS_SPREADSHEET_ID` to the private workbook ID.
+3. Run `setupIRIS()` once from the Apps Script editor and approve the requested permissions.
+4. Deploy the Apps Script as a Web App, executing as the owner, with access set to Anyone. Keep the spreadsheet itself private.
+5. Set the deployed Web App URL in `assets/js/config.js`.
+6. After every backend code change, update the existing Web App deployment to a new version (Deploy → Manage deployments → Edit → New version → Deploy).
+7. Enable GitHub Pages from the repository root (`main`, `/(root)`).
+
+## First administrator
+Create the first administrator in the `Admins` sheet with username, full_name, initial_password, role `super_admin`, and status `active`. The next API request provisions the password hash and clears the temporary password cell. Never commit credentials or share them in chat.
+
+## Operational checks before public launch
+- Verify `/health` returns success after deploying the latest Apps Script version.
+- Test super-admin login at `/admin.html`.
+- Create at least two teams before approving registrations.
+- Test one registration from submission through approval and player login.
+- Test a match, score, goal/assist/card event, player statistics, player request, admin reply and announcement.
+- Confirm the Apps Script deployment URL and GitHub Pages URL are correct.
+- Review access permissions and keep the spreadsheet private.
+
+## Important limitations / data integrity notes
+- Player appearance counts are calculated from completed matches for the player's current team; transfers do not yet preserve historical team membership for appearance calculations.
+- Clean sheets are estimated for players whose current position is goalkeeper from their team's completed matches; a dedicated goalkeeper appearance/event model would be needed for exact historical attribution.
+- This project has not been security-audited or load-tested. Do not treat it as production-certified until the end-to-end checks above and a security review are complete.
