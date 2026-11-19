@@ -311,6 +311,20 @@ function adminApi_(section,b,session,method) {
     const id=uid_("MAT");append_("Matches",{match_id:id,season_id:clean_(b.season_id,50),match_number:clean_(b.match_number,20),home_team_id:b.home_team_id,away_team_id:b.away_team_id,home_score:"",away_score:"",venue:clean_(b.venue,100),match_date:clean_(b.match_date,30),kickoff_time:clean_(b.kickoff_time,20),status:"scheduled",round_name:clean_(b.round_name,60),notes:clean_(b.notes,500),published:b.published===false?"FALSE":"TRUE",created_at:new Date(),updated_at:new Date()});
     audit_(admin.admin_id,"admin","match_created","Matches",id,{});return {success:true,match_id:id};
   }
+  if (section === "add-match-event") {
+    requireMethodPost_(b,method);
+    const match=rows_("Matches").find(x=>x.match_id===b.match_id),player=rows_("Players").find(x=>x.player_id===b.player_id);
+    const allowed=["goal","assist","yellow_card","red_card"];
+    if(!match||!player) throw new Error("المباراة أو اللاعب غير موجود.");
+    if([match.home_team_id,match.away_team_id].indexOf(player.team_id)<0) throw new Error("اللاعب ليس ضمن أحد فريقي المباراة.");
+    const type=clean_(b.event_type,30);if(allowed.indexOf(type)<0) throw new Error("نوع الحدث غير صحيح.");
+    const minute=num_(b.minute);if(minute<0||minute>150) throw new Error("الدقيقة غير صحيحة.");
+    const id=uid_("EVT");
+    append_("MatchEvents",{event_id:id,match_id:match.match_id,player_id:player.player_id,team_id:player.team_id,event_type:type,minute:minute,description:clean_(b.description,200),approved:true,created_at:new Date(),created_by:admin.admin_id});
+    recalcStats_(match.season_id);
+    audit_(admin.admin_id,"admin","match_event_added","MatchEvents",id,{match_id:match.match_id,player_id:player.player_id,event_type:type});
+    return {success:true,event_id:id};
+  }
   if (section === "set-result") {
     requireMethodPost_(b,method);
     const match=rows_("Matches").find(x=>x.match_id===b.match_id);if(!match)throw new Error("المباراة غير موجودة.");
