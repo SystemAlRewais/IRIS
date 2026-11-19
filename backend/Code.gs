@@ -436,30 +436,52 @@ function provisionAdminFromProperties_() {
   const props = PropertiesService.getScriptProperties();
   const username = String(props.getProperty("IRIS_ADMIN_USERNAME") || "").trim().toLowerCase();
   const password = String(props.getProperty("IRIS_ADMIN_PASSWORD") || "");
+
+  // Both properties are required. Never create a demo or default credential.
   if (!username || !password) return false;
-  if (!/^[a-z0-9._-]{3,80}$/.test(username)) throw new Error("IRIS_ADMIN_USERNAME يجب أن يكون 3 أحرف على الأقل وبالإنجليزية.");
-  if (password.length < 12) throw new Error("IRIS_ADMIN_PASSWORD يجب ألا تقل عن 12 حرفاً.");
+  if (!/^[a-z0-9._-]{3,80}$/.test(username)) {
+    throw new Error("IRIS_ADMIN_USERNAME يجب أن يكون 3 أحرف على الأقل وبالإنجليزية.");
+  }
+  if (password.length < 12) {
+    throw new Error("IRIS_ADMIN_PASSWORD يجب ألا تقل عن 12 حرفاً.");
+  }
+
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
-    const existing = rows_("Admins").find(a => String(a.username).toLowerCase() === username);
-    if (existing) {
-      props.deleteProperty("IRIS_ADMIN_PASSWORD");
-      return false;
-    }
+    const existing = rows_("Admins").find(a => String(a.username).trim().toLowerCase() === username);
     const salt = Utilities.getUuid() + Utilities.getUuid();
-    append_("Admins", {
-      admin_id: uid_("ADM"),
-      username: username,
-      full_name: clean_(props.getProperty("IRIS_ADMIN_FULL_NAME") || "مدير IRIS", 100),
-      password_hash: hashPassword_(password, salt),
-      password_salt: salt,
-      role: "super_admin",
-      status: "active",
-      created_at: new Date(),
-      last_login: "",
-      initial_password: ""
-    });
+    const passwordHash = hashPassword_(password, salt);
+    const now = new Date();
+
+    if (existing) {
+      // The configured credentials are authoritative for this username.
+      // Update the existing row instead of silently discarding the password property.
+      updateById_("Admins", "admin_id", existing.admin_id, {
+        full_name: existing.full_name || "IRIS Administrator",
+        password_hash: passwordHash,
+        password_salt: salt,
+        role: "super_admin",
+        status: "active",
+        initial_password: "",
+        updated_at: now
+      });
+    } else {
+      append_("Admins", {
+        admin_id: uid_("ADM"),
+        username: username,
+        full_name: "IRIS Administrator",
+        password_hash: passwordHash,
+        password_salt: salt,
+        role: "super_admin",
+        status: "active",
+        created_at: now,
+        last_login: "",
+        initial_password: ""
+      });
+    }
+
+    // Clear the plaintext password only after the account write succeeds.
     props.deleteProperty("IRIS_ADMIN_PASSWORD");
     return true;
   } finally {
